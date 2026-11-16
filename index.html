@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Web Blox 2D — P2P Game Studio</title>
+  <link rel="preconnect" href="https://jsdelivr.net" crossorigin />
+  <link rel="preconnect" href="https://unpkg.com" crossorigin />
+  <style>
+    :root { --bg:#0b0e14; --panel:#131720; --surf:#1a202c; --bdr:#283040; --txt:#e2e8f0; --mut:#8b9bb4; --blue:#3b82f6; --grn:#10b981; --red:#ef4444; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { background:var(--bg); color:var(--txt); font-family:monospace; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+    header { height:50px; background:var(--panel); border-bottom:1px solid var(--bdr); display:flex; align-items:center; justify-content:space-between; padding:0 14px; gap:8px; position:relative; }
+    .brand { font-weight:800; font-size:14px; color:#fff; display:flex; align-items:center; gap:6px; }
+    .brand span { background:linear-gradient(135deg,#3b82f6,#8b5cf6); padding:2px 6px; border-radius:4px; font-size:11px; }
+    .controls { display:flex; align-items:center; gap:6px; }
+    .pill { background:var(--bg); border:1px solid var(--bdr); padding:5px 9px; border-radius:6px; font-size:11px; cursor:pointer; }
+    .pill b { color:var(--grn); } .pill b.off { color:var(--mut); }
+    input[type="text"] { background:var(--bg); border:1px solid var(--bdr); color:var(--txt); padding:5px 8px; border-radius:6px; font-size:12px; width:145px; outline:none; }
+    input:disabled, button:disabled { opacity:0.4; cursor:not-allowed; }
+    button { background:var(--grn); color:#fff; border:none; padding:6px 10px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; }
+    button.blue { background:var(--blue); } button.sec { background:var(--surf); border:1px solid var(--bdr); color:var(--txt); }
+    #settings { display:none; position:absolute; top:54px; right:14px; width:270px; background:var(--panel); border:1px solid var(--bdr); border-radius:8px; padding:14px; z-index:40; box-shadow:0 10px 28px rgba(0,0,0,0.6); font-size:12px; }
+    #settings.open { display:block; }
+    .row { display:flex; align-items:center; justify-content:space-between; margin-top:10px; padding-top:8px; border-top:1px solid var(--bdr); }
+    main { flex:1; display:flex; overflow:hidden; }
+    .left { flex:1; display:flex; flex-direction:column; border-right:1px solid var(--bdr); min-width:300px; }
+    .bar { height:32px; background:var(--panel); border-bottom:1px solid var(--bdr); padding:0 10px; display:flex; align-items:center; justify-content:space-between; font-size:11px; color:var(--mut); }
+    .bar button { padding:3px 7px; font-size:11px; }
+    #sync { padding:2px 7px; border-radius:99px; background:rgba(139,155,180,0.12); color:var(--mut); }
+    #sync.on { background:rgba(16,185,129,0.15); color:var(--grn); }
+    textarea { flex:1; width:100%; background:var(--bg); color:#dbeafe; border:none; padding:12px; font-family:monospace; font-size:13px; line-height:1.45; resize:none; outline:none; tab-size:2; }
+    .right { width:676px; background:#07090d; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px; gap:10px; }
+    canvas { width:640px; height:420px; background:#131720; border:1px solid var(--bdr); border-radius:8px; cursor:crosshair; }
+    #status { width:640px; padding:7px 10px; background:var(--panel); border:1px solid var(--bdr); border-radius:6px; font-size:11px; color:var(--mut); display:flex; justify-content:space-between; }
+    #status.err { border-color:var(--red); color:#fca5a5; }
+    body.fs .left, body.fs header { display:none; }
+    body.fs .right { width:100vw; height:100vh; }
+    body.fs canvas { width:auto; height:calc(100vh - 80px); max-width:96vw; aspect-ratio:640/420; }
+    #exit-fs { display:none; position:fixed; top:14px; right:14px; z-index:50; background:var(--red); }
+    body.fs #exit-fs { display:block; }
+  </style>
+</head>
+<body>
+  <button id="exit-fs">✕ Exit Fullscreen</button>
+  <header>
+    <div class="brand"><span>2D</span> WEB BLOX STUDIO</div>
+    <div class="controls">
+      <div class="pill" id="copy-id" title="Click to copy ID">ID: <b id="my-id">connecting...</b></div>
+      <input type="text" id="join-id" placeholder="Custom Peer ID..." />
+      <button class="blue" id="btn-join">Join</button>
+      <button id="btn-run">▶ Run &amp; Sync</button>
+      <button class="sec" id="btn-fs">⛶ Fullscreen</button>
+      <button class="sec" id="btn-set">⚙ Settings</button>
+    </div>
+    <div id="settings">
+      <b>⚙ Lobby &amp; Privacy</b>
+      <div class="row"><span>Auto-Join Public Lobby</span><input type="checkbox" id="p2p-on" checked /></div>
+      <p style="font-size:11px;color:var(--mut);margin-top:8px;">Auto-connects everyone to the shared 3-Level Platformer lobby. Uncheck for Private mode.</p>
+    </div>
+  </header>
+  <main>
+    <section class="left">
+      <div class="bar">
+        <span>CODE &bull; <span id="lines">0 lines</span></span>
+        <div style="display:flex;gap:5px;align-items:center;">
+          <input type="file" id="file-in" accept=".js,.txt" hidden />
+          <button class="sec" id="btn-imp">📂 Import</button>
+          <button class="sec" id="btn-exp">💾 Export</button>
+          <button class="sec" id="btn-rst">↺ Reset</button>
+          <span id="sync" class="on">● Connecting...</span>
+        </div>
+      </div>
+      <textarea id="editor" spellcheck="false"></textarea>
+    </section>
+    <section class="right">
+      <canvas id="c" width="640" height="420"></canvas>
+      <div id="status"><span id="st-txt">Joining public platformer lobby...</span><span>640×420 @ 60FPS</span></div>
+    </section>
+  </main>
+  <script>
+    const DEFAULT_CODE = `// 3-LEVEL P2P PLATFORMER — A/D or Arrows: Move | W/Up/Space: Jump | [R]: Restart
+const LVLS = [
+  { name:'STAGE 1: EMERALD', bg:'#0f172a', goal:{x:565,y:55}, mov:[], spk:[],
+    plats:[{x:0,y:380,w:180,h:40,c:'#10b981'},{x:220,y:330,w:110,h:16,c:'#334155'},{x:380,y:275,w:110,h:16,c:'#334155'},{x:210,y:210,w:110,h:16,c:'#334155'},{x:60,y:155,w:110,h:16,c:'#334155'},{x:230,y:110,w:120,h:16,c:'#334155'},{x:430,y:95,w:180,h:18,c:'#10b981'}],
+    coins:[{x:275,y:300},{x:435,y:245},{x:115,y:125},{x:290,y:80}] },
+  { name:'STAGE 2: SKY LIFTS', bg:'#111827', goal:{x:575,y:65}, spk:[{x:495,y:286,w:24}],
+    plats:[{x:0,y:380,w:140,h:40,c:'#3b82f6'},{x:460,y:300,w:120,h:16,c:'#334155'},{x:60,y:185,w:110,h:16,c:'#334155'},{x:450,y:105,w:170,h:18,c:'#3b82f6'}],
+    mov:[{x:180,y:340,w:95,h:14,bx:260,r:90,s:0.035},{x:260,y:235,w:95,h:14,bx:280,r:105,s:0.04},{x:220,y:140,w:95,h:14,bx:280,r:85,s:0.045}],
+    coins:[{x:260,y:305},{x:520,y:265},{x:115,y:150},{x:280,y:105}] },
+  { name:'STAGE 3: NEON GAUNTLET', bg:'#140f24', goal:{x:575,y:55},
+    plats:[{x:0,y:380,w:130,h:40,c:'#a855f7'},{x:180,y:335,w:140,h:16,c:'#3b2d5e'},{x:380,y:290,w:140,h:16,c:'#3b2d5e'},{x:190,y:230,w:150,h:16,c:'#3b2d5e'},{x:40,y:170,w:110,h:16,c:'#3b2d5e'},{x:460,y:95,w:160,h:18,c:'#a855f7'}],
+    mov:[{x:210,y:125,w:90,h:14,bx:285,r:85,s:0.05}], spk:[{x:235,y:321,w:22},{x:435,y:276,w:22},{x:255,y:216,w:22}],
+    coins:[{x:245,y:295},{x:445,y:250},{x:95,y:135},{x:285,y:85}] }
+];
+const st = window._wb || (window._wb = { t:0, lvl:0, score:0, won:false, got:{} });
+function loadLvl(i, full) { if(full){st.score=0;st.won=false;st.got={};} st.lvl=i; me.lvl=i+1; me.x=35; me.y=330; me.vx=me.vy=0; me.g=false; }
+function update() {
+  st.t++; me.w=22; me.h=22; me.lvl=st.lvl+1; const cur=LVLS[st.lvl];
+  if (keys.KeyR) loadLvl(0, true);
+  me.vx = (keys.ArrowLeft||keys.KeyA) ? -4.3 : ((keys.ArrowRight||keys.KeyD) ? 4.3 : me.vx*0.8);
+  if ((keys.ArrowUp||keys.KeyW||keys.Space) && me.g) { me.vy=-10.8; me.g=false; }
+  for (const m of cur.mov) { const px=m.x; m.x=m.bx+Math.sin(st.t*m.s)*m.r; m.dx=m.x-px; }
+  me.vy=Math.min(12,me.vy+0.55); me.x=Math.max(0,Math.min(618,me.x+me.vx)); me.y+=me.vy; me.g=false;
+  const all=[...cur.plats,...cur.mov];
+  for (const p of all) if (me.vy>=0 && me.x+22>p.x && me.x<p.x+p.w && me.y+22>=p.y && me.y+22-me.vy<=p.y+13) { me.y=p.y-22; me.vy=0; me.g=true; if(p.dx) me.x+=p.dx; }
+  if (me.y>404) loadLvl(st.lvl,false);
+  for (const s of cur.spk) if (me.x+19>s.x && me.x+3<s.x+s.w && me.y+20>s.y && me.y<s.y+14) loadLvl(st.lvl,false);
+  ctx.fillStyle=cur.bg; ctx.fillRect(0,0,640,420); ctx.fillStyle='#ef4444'; ctx.fillRect(130,405,510,15);
+  for (const p of all) { ctx.fillStyle=p.c||'#38bdf8'; ctx.fillRect(p.x,p.y,p.w,p.h); ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.fillRect(p.x,p.y,p.w,3); }
+  ctx.fillStyle='#f43f5e'; for (const s of cur.spk) { ctx.beginPath(); ctx.moveTo(s.x,s.y+14); ctx.lineTo(s.x+s.w/2,s.y); ctx.lineTo(s.x+s.w,s.y+14); ctx.fill(); }
+  cur.coins.forEach((c,i) => { const k=st.lvl+'-'+i; if(st.got[k]) return; const b=Math.sin(st.t*0.1+i)*3; ctx.fillStyle='#fbbf24'; ctx.beginPath(); ctx.arc(c.x,c.y+b,7,0,Math.PI*2); ctx.fill(); if(Math.hypot(me.x+11-c.x,me.y+11-(c.y+b))<20){st.got[k]=1;st.score+=100;} });
+  ctx.fillStyle='#e2e8f0'; ctx.fillRect(cur.goal.x,cur.goal.y,4,40); ctx.fillStyle='#22c55e'; ctx.fillRect(cur.goal.x+4,cur.goal.y,22,14);
+  if (!st.won && Math.hypot(me.x+11-cur.goal.x,me.y+11-(cur.goal.y+20))<26) { st.score+=250; if(st.lvl<2) loadLvl(st.lvl+1,false); else st.won=true; }
+  for (const id in peers) { const p=peers[id]; ctx.fillStyle='#f97316'; ctx.fillRect(p.x,p.y,22,22); ctx.fillStyle='#fff'; ctx.font='10px monospace'; ctx.fillText(id.slice(0,4)+'[L'+(p.lvl||1)+']',p.x-6,p.y-5); }
+  ctx.fillStyle='#3b82f6'; ctx.fillRect(me.x,me.y,22,22); ctx.fillStyle='#fff'; ctx.fillRect(me.x+5,me.y+6,4,4); ctx.fillRect(me.x+13,me.y+6,4,4); ctx.fillText('YOU',me.x+2,me.y-5);
+  ctx.font='bold 12px monospace'; ctx.fillText(cur.name+'  |  SCORE: '+st.score+'  |  ONLINE: '+(Object.keys(peers).length+1),14,22);
+  if (st.won) { ctx.fillStyle='rgba(15,23,42,0.88)'; ctx.fillRect(175,160,290,80); ctx.strokeStyle='#22c55e'; ctx.strokeRect(175,160,290,80); ctx.fillStyle='#22c55e'; ctx.font='bold 15px monospace'; ctx.fillText('ALL 3 STAGES CLEARED!',222,195); ctx.fillStyle='#cbd5e1'; ctx.font='11px monospace'; ctx.fillText('Press [R] to play again',242,220); }
+}`;
+    const LOBBY = 'wb2d-global-platformer-lobby-v1', canvas = document.getElementById('c'), ctx = canvas.getContext('2d'), editor = document.getElementById('editor');
+    const myIdEl = document.getElementById('my-id'), joinIn = document.getElementById('join-id'), joinBtn = document.getElementById('btn-join');
+    const stBox = document.getElementById('status'), stTxt = document.getElementById('st-txt'), syncEl = document.getElementById('sync'), p2pCheck = document.getElementById('p2p-on');
+    const me = { id:'local', x:35, y:330, w:22, h:22, vx:0, vy:0, g:false, lvl:1 }, peers = {}, keys = {};
+    let conns = {}, peer = null, p2p = true, updateFn = () => {}, lock = false, timer = null;
+    const updLines = () => document.getElementById('lines').textContent = editor.value.split('\n').length + ' lines';
+    editor.value = DEFAULT_CODE; updLines();
+    window.addEventListener('keydown', e => { if (e.key==='Escape'&&document.body.classList.contains('fs')) toggleFS(false); if ((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();runSync();return;} if (document.activeElement!==editor&&document.activeElement!==joinIn) keys[e.code]=true; });
+    window.addEventListener('keyup', e => keys[e.code]=false);
+    canvas.onmousedown = () => document.activeElement?.blur();
+    document.getElementById('btn-set').onclick = () => document.getElementById('settings').classList.toggle('open');
+    document.getElementById('copy-id').onclick = () => { if (p2p&&me.id!=='local'){navigator.clipboard?.writeText(me.id);const p=myIdEl.textContent;myIdEl.textContent='Copied!';setTimeout(()=>{if(p2p)myIdEl.textContent=p;},800);} };
+    function toggleFS(f) { const on=f!==undefined?f:!document.body.classList.contains('fs'); document.body.classList.toggle('fs',on); if(on)document.documentElement.requestFullscreen?.().catch(()=>{}); else if(document.fullscreenElement)document.exitFullscreen?.().catch(()=>{}); }
+    document.getElementById('btn-fs').onclick = () => toggleFS(true); document.getElementById('exit-fs').onclick = () => toggleFS(false);
+    document.getElementById('btn-exp').onclick = () => { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([editor.value])); a.download='web-blox-game.js'; a.click(); };
+    document.getElementById('btn-imp').onclick = () => document.getElementById('file-in').click();
+    document.getElementById('file-in').onchange = e => { const f=e.target.files?.[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{editor.value=r.result;updLines();runSync();}; r.readAsText(f); };
+    document.getElementById('btn-rst').onclick = () => { editor.value=DEFAULT_CODE; updLines(); runSync(); };
+    const setSt = (m, err) => { stTxt.textContent=m; stBox.className=err?'err':''; };
+    const updSync = t => { syncEl.className=p2p?'on':''; syncEl.textContent=!p2p?'● Private':(t||`● ${Object.keys(conns).length+1} Online`); };
+    function loadPeerJS() {
+      if (window.Peer) return Promise.resolve(window.Peer);
+      return Promise.any(['https://jsdelivr.net'].map(src => new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.async=true; s.onload=()=>window.Peer?res(window.Peer):rej(); s.onerror=rej; document.head.appendChild(s); }))).catch(()=>{throw new Error('PeerJS blocked by iframe. Open index.html directly in browser.');});
+    }
+    const connectPeer = (id, host) => { if (p2p&&peer&&id&&id!==me.id&&!conns[id]) bind(peer.connect(id,{reliable:true}),host); };
+    async function startLobby() {
+      p2p=true; p2pCheck.checked=true; myIdEl.textContent='joining...'; myIdEl.className=''; joinIn.disabled=joinBtn.disabled=false; updSync('● Joining...');
+      try {
+        const PeerCtor = await loadPeerJS(); if(!p2p)return;
+        const init = cid => {
+          const p = cid ? new PeerCtor(cid) : new PeerCtor();
+          p.on('open', id => { peer=p; me.id=id; myIdEl.textContent=id===LOBBY?'HOST':id.slice(0,8); updSync(); setSt(id===LOBBY?'Hosting public lobby!':'Joined public lobby!'); if(id!==LOBBY)connectPeer(LOBBY,false); });
+          p.on('connection', c => bind(c,true));
+          p.on('error', e => { if(e.type==='unavailable-id'&&cid===LOBBY){p.destroy();init(null);} else setSt('P2P: '+e.type,true); });
+        }; init(LOBBY);
+      } catch (e) { closeP2P(e.message); }
+    }
+    function closeP2P(msg) { p2p=false; p2pCheck.checked=false; for(const k in conns)conns[k].close(); conns={}; for(const k in peers)delete peers[k]; peer?.destroy(); peer=null; me.id='local'; myIdEl.textContent='Private (Off)'; myIdEl.className='off'; joinIn.disabled=joinBtn.disabled=true; updSync(); setSt(msg||'Room private.',!!msg); }
+    p2pCheck.onchange = e => e.target.checked ? startLobby() : closeP2P();
+    const bcast = m => { if(p2p) for(const k in conns) if(conns[k].open) conns[k].send(m); };
+    function compile(code) { try { window._wb=null; ctx.setTransform(1,0,0,1,0,0); ctx.globalAlpha=1; const fn=new Function('ctx','me','peers','keys',code+'\n; return typeof update==="function"?update:null;')(ctx,me,peers,keys); if(!fn)throw new Error('Define function update()'); updateFn=fn; return true; } catch(e){ setSt('Error: '+e.message,true); return false; } }
+    function bind(c, host) {
+      if(!p2p)return c.close();
+      c.on('open', () => { conns[c.peer]=c; updSync(); if(host){c.send({t:'run',code:editor.value});c.send({t:'mesh',list:Object.keys(conns)});} });
+      c.on('data', d => { if(!d||!p2p)return; if(d.t==='pos')peers[c.peer]=d.me; if(d.t==='mesh'&&Array.isArray(d.list))d.list.forEach(p=>connectPeer(p,false)); if(d.t==='edit'||d.t==='run'){if(editor.value!==d.code){lock=true;editor.value=d.code;lock=false;updLines();}if(d.t==='run')compile(d.code);} });
+      c.on('close', () => { delete conns[c.peer]; delete peers[c.peer]; updSync(); });
+    }
+    editor.oninput = () => { updLines(); if(!lock&&p2p){clearTimeout(timer);timer=setTimeout(()=>bcast({t:'edit',code:editor.value}),60);} };
+    joinBtn.onclick = () => connectPeer(joinIn.value.trim(), false);
+    function runSync() { if(compile(editor.value)){document.activeElement?.blur();bcast({t:'run',code:editor.value});setSt('Synced!');} }
+    document.getElementById('btn-run').onclick = runSync;
+    compile(editor.value); startLobby(); let last = 0;
+    (function loop(t) { ctx.setTransform(1,0,0,1,0,0); try{updateFn();}catch(e){setSt('Runtime Error: '+e.message,true);} if(p2p&&t-last>33){last=t;bcast({t:'pos',me});} requestAnimationFrame(loop); })(0);
+  </script>
+</body>
+</html>
